@@ -13,6 +13,59 @@
 #define handle_error(msg) \
     do { fprintf(stderr, msg); exit(EXIT_FAILURE); } while (0)
 
+void read_file_from_socket(int sockfd, const char *read_filename, const char *write_filename){
+
+	char read_filename_length = strlen(read_filename);
+	size_t write_bytes_socket = write (sockfd, &read_filename_length, 1);
+	write_bytes_socket = write(sockfd, read_filename, (unsigned int) read_filename_length);
+
+	fprintf(stderr, "Reading %s of %ld (%ld) bytes\n", read_filename, strlen(read_filename), write_bytes_socket);
+
+	unsigned char buffer_size[4], buffer_chunk[CHUNKSIZE];
+        char filename[100];
+
+       FILE *wfile;
+       unsigned int file_size = 0;
+       unsigned int filename_length = 0;
+       ssize_t read_size = 0;
+       int total_size = 0;
+       int j = 0;
+
+
+       remove(filename);
+       wfile = fopen(write_filename, "a");
+
+       //read file size
+       if (read(sockfd, &buffer_size, 4) != 4)
+           handle_error("sock.server.buffer_size.read.error");
+
+       for (int i = 0; i < 4; i++) {
+           file_size |= (unsigned char)buffer_size[i] << (i*8);
+       }
+
+
+       fprintf(stderr, "Read filename of %ld bytes\n", read_size);
+
+       fprintf(stderr, "Trying to read %d bytes from the socket...\n", file_size);
+
+       for (int i = 0; i < file_size; i += read_size){
+           read_size = read(sockfd, buffer_chunk, CHUNKSIZE);
+           total_size += read_size;
+           fprintf(stderr, "Reading chunk %d... of %ld bytes\n", j++, read_size);
+           if (read_size == -1) {
+               handle_error("sock.server.buffer_chunk.read.error");
+           }
+           size_t write_bytes_file = fwrite(buffer_chunk, 1, read_size, wfile);
+           fprintf(stderr, "Wrote %ld to file\n", write_bytes_file);
+       }
+       fclose(wfile);
+}
+
+
+
+
+
+
 void write_file_to_socket(int sockfd, const char *read_filename, const char *write_filename){
     //write filename
     //easy exploit here:
@@ -86,7 +139,33 @@ int main(int argc, char const* argv[]) {
         handle_error("unable to connect to server \n");
     }
 
-    write_file_to_socket(sockfd,"a.jpg", "b.jpg");
+    printf("Welcome to our bad version of FTP! \n");
+
+    printf("For reading a file: press 0 \n");
+
+    printf("For writing a file: press 1 \n");
+
+
+    int answer;
+    scanf("%d", &answer);
+    unsigned int k = (unsigned int) answer;
+    size_t write_bytes_socket = write(sockfd, &answer, 1);
+
+    char r[80], w[80];
+
+
+    switch (k){
+	case 0:
+	    read_file_from_socket(sockfd, "b.jpg", "x.jpg");
+	    break;
+	case 1:
+	    write_file_to_socket(sockfd, "a.jpg", "b.jpg");
+	    break;
+	default:
+	    printf("Sorry Boy! Not today\n");
+	    break;
+
+    }
 
     close(sockfd);
 
